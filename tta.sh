@@ -4,7 +4,7 @@ SRC_PREFIX="reproduce_src"
 LOG_PREFIX="eval_results"
 
 BASE_DATASETS=("cifar10noisy") # ("cifar10noisy" "cifar100noisy" "imagenetnoisy")
-METHODS=("LAME") # ("Src" "BN_Stats" "PseudoLabel" "TENT" "CoTTA" "SAR" "RoTTA" "EATA" "LAME" "SoTTA")
+METHODS=("MlTTA") # ("Src" "BN_Stats" "PseudoLabel" "TENT" "CoTTA" "SAR" "RoTTA" "EATA" "LAME" "SoTTA" "MlTTA")
 SEEDS=(0) # (0 1 2)
 NOISY_TYPES=("--noisy_type mnist")
 
@@ -13,7 +13,7 @@ NOISY_TYPES=("--noisy_type mnist")
 MIXED_SEVERITY=""
 # Mixed corruption+severity: merge ALL corruption types × ALL severities into one TTA stream
 # Set to "--mixed_corruption_severity" to enable, or "" to disable
-MIXED_CORRUPTION_SEVERITY=""
+MIXED_CORRUPTION_SEVERITY="--mixed_corruption_severity"
 # Suffix appended to LOG_PREFIX
 if [ -n "${MIXED_CORRUPTION_SEVERITY}" ]; then
   MIXED_SUFFIX="_mixed_cs"
@@ -388,6 +388,38 @@ test_time_adaptation() {
               i=$((i + 1))
               wait_n
             done
+
+          elif [ "${METHOD}" = "MlTTA" ]; then
+
+            lr="0.001"
+            EPOCH=1
+            lora_r=4
+            lora_alpha=1.0
+
+            if [ "${DATASET}" = "cifar10" ] || [ "${DATASET}" = "cifar10noisy" ]; then
+              high_threshold=0.99
+            elif [ "${DATASET}" = "cifar100" ] || [ "${DATASET}" = "cifar100noisy" ]; then
+              high_threshold=0.66
+            elif [ "${DATASET}" = "imagenetnoisy" ]; then
+              high_threshold=0.33
+            fi
+
+            for TGT in $TGTS; do
+              python main.py --gpu_idx ${GPUS[i % ${NUM_GPUS}]} --dataset $DATASET --method MlTTA --tgt ${TGT} --model $MODEL --epoch $EPOCH ${CP} --seed $SEED \
+                --remove_cp --online --tgt_train_dist ${dist} \
+                --update_every_x ${update_every_x} --memory_size ${memory_size} --memory_type HUS \
+                --lr ${lr} --weight_decay ${weight_decay} \
+                --high_threshold ${high_threshold} \
+                --lora_r ${lora_r} --lora_alpha ${lora_alpha} \
+                --log_prefix "${LOG_PREFIX}${MIXED_SUFFIX}_${SEED}_dist${dist}_ht${high_threshold}_r${lora_r}_a${lora_alpha}_lr${lr}" \
+                ${NOISY_TYPE} \
+                ${validation} \
+                ${MIXED_SEVERITY} ${MIXED_CORRUPTION_SEVERITY} \
+                2>&1 | tee raw_logs/${DATASET}_${LOG_PREFIX}${MIXED_SUFFIX}_${SEED}_job${i}.txt &
+
+              i=$((i + 1))
+              wait_n
+            done
           fi
 
         done
@@ -673,6 +705,38 @@ if [ -n "${MIXED_CORRUPTION_SEVERITY}" ]; then
                 --lr ${lr} --weight_decay ${weight_decay} \
                 --log_prefix "${LOG_PREFIX}${MIXED_SUFFIX}_${SEED}_dist${dist}" \
                 --e_margin ${e_margin} --d_margin ${d_margin} --fisher_alpha ${fisher_alpha} \
+                ${NOISY_TYPE} \
+                ${validation} \
+                ${MIXED_SEVERITY} ${MIXED_CORRUPTION_SEVERITY} \
+                2>&1 | tee raw_logs/${DATASET}_${LOG_PREFIX}${MIXED_SUFFIX}_${SEED}_job${i}.txt &
+
+              i=$((i + 1))
+              wait_n
+            done
+
+          elif [ "${METHOD}" = "MlTTA" ]; then
+
+            lr="0.001"
+            EPOCH=1
+            lora_r=4
+            lora_alpha=1.0
+
+            if [ "${DATASET}" = "cifar10" ] || [ "${DATASET}" = "cifar10noisy" ]; then
+              high_threshold=0.99
+            elif [ "${DATASET}" = "cifar100" ] || [ "${DATASET}" = "cifar100noisy" ]; then
+              high_threshold=0.66
+            elif [ "${DATASET}" = "imagenetnoisy" ]; then
+              high_threshold=0.33
+            fi
+
+            for TGT in $TGTS; do
+              python main.py --gpu_idx ${GPUS[i % ${NUM_GPUS}]} --dataset $DATASET --method MlTTA --tgt ${TGT} --model $MODEL --epoch $EPOCH ${CP} --seed $SEED \
+                --remove_cp --online --tgt_train_dist ${dist} \
+                --update_every_x ${update_every_x} --memory_size ${memory_size} --memory_type HUS \
+                --lr ${lr} --weight_decay ${weight_decay} \
+                --high_threshold ${high_threshold} \
+                --lora_r ${lora_r} --lora_alpha ${lora_alpha} \
+                --log_prefix "${LOG_PREFIX}${MIXED_SUFFIX}_${SEED}_dist${dist}_ht${high_threshold}_r${lora_r}_a${lora_alpha}_lr${lr}" \
                 ${NOISY_TYPE} \
                 ${validation} \
                 ${MIXED_SEVERITY} ${MIXED_CORRUPTION_SEVERITY} \

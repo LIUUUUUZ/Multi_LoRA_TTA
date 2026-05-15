@@ -146,6 +146,7 @@ def main():
     from learner.rotta import RoTTA
     from learner.eata import EATA
     from learner.src_for_tta_attack import SRC_FOR_TTA_ATTACK
+    from learner.mltta import MlTTA
 
     result_path, checkpoint_path, log_path = get_path()
 
@@ -173,6 +174,8 @@ def main():
         learner_method = SRC_FOR_TTA_ATTACK
     elif conf.args.method == "EATA":
         learner_method = EATA
+    elif conf.args.method == "MlTTA":
+        learner_method = MlTTA
     else:
         raise NotImplementedError
 
@@ -395,6 +398,12 @@ def parse_arguments():
     parser.add_argument('--mixed_corruption_severity', action='store_true', default=False,
                         help='Merge ALL corruption types × ALL severity levels into one TTA stream; '
                              'online eval counts only severity=5 samples, reported per corruption type')
+
+    # MlTTA settings
+    parser.add_argument('--lora_r', type=int, default=4,
+                        help='LoRA rank for MlTTA adapters')
+    parser.add_argument('--lora_alpha', type=float, default=1.0,
+                        help='LoRA scaling factor (delta = alpha/r * B @ A @ x)')
 
     # EATA settings
     parser.add_argument('--fisher_size', default=2000, type=int,
